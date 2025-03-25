@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雷の距離計算</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+        }
+        .description {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+        .input-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        input[type="number"] {
+            font-size: 2rem;
+            padding: 10px;
+            width: 80%;
+            margin-bottom: 20px;
+        }
+        button {
+            font-size: 2rem;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        #display {
+            display: none;
+            font-size: 5rem;
+        }
+        #result {
+            display: none;
+            font-size: 3rem;
+            text-align: center;
+        }
+        #settingsButton, #resetButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.5rem;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        #resetButton {
+            top: auto;
+            bottom: 10px;
+        }
+        .elapsed-time {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="description">
+        <p>このサイトでは雷までの距離を簡単に計算できます。以下の手順に従って操作してください：</p>
+        <ol>
+            <li>現在の気温を入力し、「決定」ボタンを押してください。</li>
+            <li>「0.00s」の画面が表示されます。スタートしたいときに画面全体をクリックしてください。</li>
+            <li>雷鳴が聞こえた瞬間にもう一度クリックすると、雷までの距離が表示されます。</li>
+            <li>「リセット」ボタンで再計測、または「気温を再設定する」ボタンで気温を変更できます。</li>
+        </ol>
+    </div>
+    <div class="input-container">
+        <label for="temperature">現在の気温 (℃): </label><br>
+        <input type="number" id="temperature" placeholder="例: 25">
+        <button id="startButton">決定</button>
+    </div>
+    <div id="display">0.00s</div>
+    <div id="result">
+        <div class="elapsed-time" id="elapsedTime"></div>
+        <div id="distance"></div>
+        <button id="resetButton">リセット</button>
+        <button id="settingsButton">気温を再設定する</button>
+    </div>
+
+    <script>
+        let startTime;
+        let isRunning = false;
+        let timer;
+        let speedFactor;
+
+        // 表示中の画面に応じてクリック判定を有効化する関数
+        function setActiveElements(activeElements) {
+            // 全ての要素を無効化
+            document.body.querySelectorAll('*').forEach(el => {
+                el.style.pointerEvents = 'none'; // クリックを無効化
+            });
+            // 指定された要素のみ有効化
+            activeElements.forEach(el => {
+                el.style.pointerEvents = 'auto'; // クリックを有効化
+            });
+        }
+
+        // 初期画面（画面A）で有効化する要素
+        setActiveElements([document.querySelector('.input-container'), document.getElementById('temperature'), document.getElementById('startButton')]);
+
+        // 「決定」ボタンの処理（画面Bへ移行）
+        document.getElementById('startButton').addEventListener('click', () => {
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            if (isNaN(temperature)) {
+                alert("有効な気温を入力してください！");
+                return;
+            }
+            // 音速係数を計算
+            speedFactor = 20.055 * Math.sqrt(273.15 + temperature);
+
+            // 初期化
+            document.querySelector('.input-container').style.display = 'none';
+            document.querySelector('.description').style.display = 'none';
+            document.getElementById('display').textContent = "0.00s";
+            document.getElementById('display').style.display = 'block'; // ストップウォッチ画面に移行
+
+            // 画面Bで有効化する要素
+            setActiveElements([document.getElementById('display')]);
+        });
+
+        // 画面全体をクリックしてストップウォッチ操作
+        document.body.addEventListener('click', (event) => {
+            // 現在有効な要素以外は無視
+            if (event.target.style.pointerEvents === 'none') return;
+
+            if (document.getElementById('display').style.display === 'block') { // 画面Bの処理
+                if (!isRunning) {
+                    // ストップウォッチをスタート
+                    isRunning = true;
+                    startTime = Date.now();
+                    timer = setInterval(() => {
+                        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                        document.getElementById('display').textContent = `${elapsed}s`;
+                    }, 10);
+                } else {
+                    // ストップウォッチをストップ
+                    isRunning = false;
+                    clearInterval(timer);
+
+                    const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                    const distance = (speedFactor * elapsedTime).toFixed(2);
+                    document.getElementById('display').style.display = 'none';
+                    document.getElementById('elapsedTime').textContent = `計測した秒数: ${elapsedTime}s`;
+                    document.getElementById('distance').textContent = `雷までの距離: ${distance}m`;
+                    document.getElementById('result').style.display = 'block';
+
+                    // 画面Cで有効化する要素
+                    setActiveElements([document.getElementById('resetButton'), document.getElementById('settingsButton')]);
+                }
+            }
+        });
+
+        // リセットボタンの処理（画面Bに戻る）
+        document.getElementById('resetButton').addEventListener('click', () => {
+            isRunning = false;
+            clearInterval(timer);
+            document.getElementById('display').textContent = "0.00s";
+            document.getElementById('display').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+
+            // 画面Bで有効化する要素
+            setActiveElements([document.getElementById('display')]);
+        });
+
+        // 「気温を再設定する」ボタンの処理（画面Aに戻る）
+        document.getElementById('settingsButton').addEventListener('click', () => {
+            isRunning = false;
+            clearInterval(timer);
+            document.getElementById('display').style.display = 'none';
+            document.getElementById('result').style.display = 'none';
+            document.querySelector('.input-container').style.display = 'block';
+            document.querySelector('.description').style.display = 'block';
+
+            // 画面Aで有効化する要素
+            setActiveElements([document.querySelector('.input-container'), document.getElementById('temperature'), document.getElementById('startButton')]);
+        });
+    </script>
+</body>
+</html>
